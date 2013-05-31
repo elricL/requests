@@ -275,6 +275,7 @@ class Session(SessionRedirectMixin):
 
         # Prepare the Request.
         prep = req.prepare()
+        prep.session = self
 
         # Send the request.
         resp = self.send(prep, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)

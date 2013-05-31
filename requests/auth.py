@@ -16,6 +16,8 @@ from base64 import b64encode
 
 from .compat import urlparse, str
 from .utils import parse_dict_header
+from .cookies import cookiejar_from_dict
+from itertools import chain
 
 
 log = logging.getLogger(__name__)
@@ -156,14 +158,26 @@ class HTTPDigestAuth(AuthBase):
             # to allow our new request to reuse the same one.
             r.content
             r.raw.release_conn()
-            
+
+            session = r.request.session
+            new_request_cookie_jar = cookiejar_from_dict({})
+            cookies401 = r.cookies
+            for cookie in chain(cookies401, session.cookies):
+                new_request_cookie_jar.set_cookie(cookie)
+            del r.request.headers['Cookie']
+            r.request.prepare_cookies(new_request_cookie_jar)
+
             r.request.headers['Authorization'] = self.build_digest_header(r.request.method, r.request.url)
             _r = r.connection.send(r.request)
             _r.history.append(r)
 
+            for cookie in _r.cookies:
+                cookies401.set_cookie(cookie)
+            _r.cookies = cookies401
+
             return _r
 
-        setattr(self, 'num_401_calls', 1)  
+        setattr(self, 'num_401_calls', 1)
         return r
 
     def __call__(self, r):
